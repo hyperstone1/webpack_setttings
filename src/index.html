@@ -6,10 +6,23 @@
     <title>Webpack</title>
   </head>
   <body>
-    <include src="./components/header.html"></include>
-    <img src="./assets/images/example.png" alt="" />
+    <include
+      src="./components/header.html"
+      data-text='{"h3": {"text": "new text", "class": "white"}}'
+    ></include>
+    <include
+      src="./components/header.html"
+      data-text='{"h3": {"html": "<div>NEW TEXT</div>", "class": "white"}}'
+    ></include>
+
+    <div class="image">
+      <img src="./assets/images/example.webp" alt="" />
+    </div>
+
+    <div class="exampel"></div>
+
     <video autoplay>
-      <source src="./assets/intro.mp4" type="video/mp4" />
+      <source src="./assets/video/intro.mp4" type="video/mp4" />
     </video>
   </body>
 </html>
