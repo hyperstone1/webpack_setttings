@@ -20,7 +20,7 @@ const PAGES = fs
   .readdirSync(PAGES_DIR)
   .filter((fileName) => fileName.endsWith(".html"));
 
-const HTML_FILES = glob.sync("./src/**/*.html");
+const HTML_FILES = glob.sync("./src/*.html");
 const pages = HTML_FILES.map((page) => {
   return new HtmlWebpackPlugin({
     template: path.resolve(__dirname, page),
@@ -28,6 +28,29 @@ const pages = HTML_FILES.map((page) => {
     chunks: [path.basename(page, ".html"), "main"],
   });
 });
+
+const videoSourcePath = path.resolve(__dirname, "./", "src/assets/", "video");
+const videoDestPath = path.resolve(__dirname, "./", "dist/assets/", "video");
+
+// Проверяем существование директории
+if (fs.existsSync(videoSourcePath)) {
+  console.log(`Copying videos from ${videoSourcePath} to ${videoDestPath}`);
+
+  // Создаем объект CopyPlugin только если директория существует
+  const copyPlugin = new CopyPlugin({
+    patterns: [
+      {
+        from: videoSourcePath,
+        to: videoDestPath,
+      },
+    ],
+  });
+
+  // Добавляем созданный объект CopyPlugin в массив плагинов
+  module.exports.plugins.push(copyPlugin);
+} else {
+  console.error(`Error: Directory ${videoSourcePath} does not exist.`);
+}
 
 //рабочий
 // const INCLUDE_PATTERN =
@@ -201,10 +224,10 @@ module.exports = {
           from: path.resolve(__dirname, "./", "src/assets/", "fonts"),
           to: path.resolve(__dirname, "./", "dist/assets/", "fonts"),
         },
-        {
-          from: path.resolve(__dirname, "./", "src/assets/", "video"),
-          to: path.resolve(__dirname, "./", "dist/assets/", "video"),
-        },
+        // {
+        //   from: videoSourcePath,
+        //   to: videoDestPath,
+        // },
       ],
     }),
   ],
