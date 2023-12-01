@@ -46,12 +46,20 @@ if (fs.existsSync(videoSourcePath)) {
     ],
   });
 
+  // Инициализируем массив plugins, если он не определен
+  if (!module.exports.plugins) {
+    console.log("nety plugins");
+    module.exports.plugins = [];
+  }
+  console.log(module.exports.plugins);
+
   // Добавляем созданный объект CopyPlugin в массив плагинов
   module.exports.plugins.push(copyPlugin);
 } else {
-  console.error(`Error: Directory ${videoSourcePath} does not exist.`);
+  console.warn(
+    `Warning: Directory ${videoSourcePath} does not exist. Videos will not be copied.`
+  );
 }
-
 //рабочий
 // const INCLUDE_PATTERN =
 //   /<include\s+src=["'](\.\/)?([^"']+)["']\s+data-text='([^']+)'\s*><\/include>/g;
@@ -134,6 +142,7 @@ const entryPoints = HTML_FILES.reduce((entries, page) => {
   entries[entryName] = path.resolve(__dirname, page);
   return entries;
 }, {});
+
 function reviveJsonKeys(key, value) {
   if (typeof value === "string" && value.startsWith("HTML:")) {
     return value.substring(5); // убираем префикс "HTML:"
@@ -214,22 +223,35 @@ module.exports = {
       silent: false,
       strict: true,
     }),
-    new CopyPlugin({
-      patterns: [
-        {
-          from: path.resolve(__dirname, "./", "src/assets/", "images"),
-          to: path.resolve(__dirname, "./", "dist/assets/", "images"),
-        },
-        {
-          from: path.resolve(__dirname, "./", "src/assets/", "fonts"),
-          to: path.resolve(__dirname, "./", "dist/assets/", "fonts"),
-        },
-        // {
-        //   from: videoSourcePath,
-        //   to: videoDestPath,
-        // },
-      ],
-    }),
+    fs.existsSync(videoSourcePath)
+      ? new CopyPlugin({
+          patterns: [
+            {
+              from: path.resolve(__dirname, "./", "src/assets/", "images"),
+              to: path.resolve(__dirname, "./", "dist/assets/", "images"),
+            },
+            {
+              from: path.resolve(__dirname, "./", "src/assets/", "fonts"),
+              to: path.resolve(__dirname, "./", "dist/assets/", "fonts"),
+            },
+            {
+              from: videoSourcePath,
+              to: videoDestPath,
+            },
+          ],
+        })
+      : new CopyPlugin({
+          patterns: [
+            {
+              from: path.resolve(__dirname, "./", "src/assets/", "images"),
+              to: path.resolve(__dirname, "./", "dist/assets/", "images"),
+            },
+            {
+              from: path.resolve(__dirname, "./", "src/assets/", "fonts"),
+              to: path.resolve(__dirname, "./", "dist/assets/", "fonts"),
+            },
+          ],
+        }),
   ],
 
   module: {
