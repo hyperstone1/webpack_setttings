@@ -11,14 +11,6 @@ const glob = require("glob");
 const mode = process.env.NODE_ENV || "development";
 const devMode = mode === "development";
 const target = devMode ? "web" : "browserslist";
-const devtool = devMode ? "source-map" : undefined;
-const PAGES_DIR = path.join(__dirname, "./src");
-console.log(__dirname);
-console.log(PAGES_DIR);
-
-const PAGES = fs
-  .readdirSync(PAGES_DIR)
-  .filter((fileName) => fileName.endsWith(".html"));
 
 const HTML_FILES = glob.sync("./src/*.html");
 const pages = HTML_FILES.map((page) => {
@@ -26,6 +18,7 @@ const pages = HTML_FILES.map((page) => {
     template: path.resolve(__dirname, page),
     filename: path.basename(page),
     chunks: [path.basename(page, ".html"), "main"],
+    minify: false,
   });
 });
 
@@ -67,8 +60,6 @@ if (fs.existsSync(videoSourcePath)) {
 const INCLUDE_PATTERN =
   /<include\s+src=["'](\.\/)?([^"']+)["'](?:\s+data-text='([^']+)')?\s*><\/include>/g;
 
-// Пример использования регулярного выражения
-
 const { JSDOM } = require("jsdom");
 
 function processNestedHtml(content, loaderContext, resourcePath = "") {
@@ -78,76 +69,63 @@ function processNestedHtml(content, loaderContext, resourcePath = "") {
       : path.dirname(resourcePath);
 
   function replaceHtml(match, pathRule, src, dataText) {
-    console.log("Match:", match);
-    console.log("Path Rule:", pathRule);
-    console.log("Source:", src);
-    console.log("Data Text:", dataText);
     if (pathRule === "./") {
       fileDir = loaderContext.context;
     }
     const filePath = path.resolve(fileDir, src);
     loaderContext.dependency(filePath);
     let html = fs.readFileSync(filePath, "utf8");
-
+    console.log("filePath: ", filePath, "match: ", match);
     try {
-      const data = JSON.parse(dataText);
+      console.log("data: ", dataText);
+      const data = dataText && JSON.parse(dataText);
       const dom = new JSDOM(html);
       const document = dom.window.document;
+      if (data) {
+        Object.keys(data).forEach((selector) => {
+          const elementData = data[selector];
+          const elements = document.querySelectorAll(selector);
 
-      Object.keys(data).forEach((selector) => {
-        const elementData = data[selector];
-        const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            elements.forEach((element) => {
+              if (elementData.text) {
+                element.textContent = elementData.text;
+              }
+              if (elementData.html) {
+                element.innerHTML = elementData.html;
+              }
+              if (elementData.class) {
+                element.classList.add(elementData.class);
+              }
+            });
+          } else {
+            console.error(
+              `Elements with selector "${selector}" not found in ${src}`
+            );
+          }
+        });
+      }
 
-        if (elements.length > 0) {
-          elements.forEach((element) => {
-            if (elementData.text) {
-              element.textContent = elementData.text;
-            }
-            if (elementData.html) {
-              element.innerHTML = elementData.html;
-            }
-            if (elementData.class) {
-              element.classList.add(elementData.class);
-            }
-          });
-        } else {
-          console.error(
-            `Elements with selector "${selector}" not found in ${src}`
-          );
-        }
-      });
+      html = document.body.innerHTML;
+      // Рекурсивно обрабатываем вложенные компоненты
 
-      console.log(
-        "document.documentElement.innerHTML: ",
-        document.body.innerHTML
-      );
-      html = document.body.innerHTML; // Получаем только содержимое <html>
+      html = processNestedHtml(html, loaderContext, filePath);
+      console.log("html: ", html);
     } catch (error) {
       console.error(`Error parsing data-text attribute: ${error.message}`);
     }
 
-    return html; // Возвращаем только содержимое компоненты без оборачивания в теги <html>, <head> и <body>
+    return html;
   }
 
-  if (!INCLUDE_PATTERN.test(content)) {
-    return content;
-  } else {
-    console.log(content.replace(INCLUDE_PATTERN, replaceHtml));
-    return content.replace(INCLUDE_PATTERN, replaceHtml);
-  }
-}
+  content = content.replace(
+    INCLUDE_PATTERN,
+    (match, pathRule, src, dataText) => {
+      return replaceHtml(match, pathRule, src, dataText);
+    }
+  );
 
-const entryPoints = HTML_FILES.reduce((entries, page) => {
-  const entryName = path.basename(page, ".html");
-  entries[entryName] = path.resolve(__dirname, page);
-  return entries;
-}, {});
-
-function reviveJsonKeys(key, value) {
-  if (typeof value === "string" && value.startsWith("HTML:")) {
-    return value.substring(5); // убираем префикс "HTML:"
-  }
-  return value;
+  return content;
 }
 
 function processHtmlLoader(content, loaderContext) {
@@ -164,13 +142,15 @@ function processHtmlLoader(content, loaderContext) {
 module.exports = {
   mode,
   target,
-  devtool,
+  devtool: "inline-source-map",
   devServer: {
-    static: "./dist",
-    port: 3000,
+    historyApiFallback: true,
     open: true,
     hot: true,
-    watchFiles: ["./src/**/*.html"],
+    port: "auto",
+    host: "local-ip",
+    static: path.resolve(__dirname, "dist"),
+    watchFiles: path.join(__dirname, "src"),
   },
 
   entry: {
@@ -184,8 +164,7 @@ module.exports = {
     clean: true,
     //название js файла в билде
     // [name] - стандартный по вебпаку (main), [contenthash] - добавляептся хэш к названию
-    filename: "[name][contenthash].js",
-    // assetModuleFilename: "assets/images",
+    filename: "[name].js",
   },
 
   plugins: [
@@ -193,7 +172,7 @@ module.exports = {
 
     ...pages,
     new MiniCssExtractPlugin({
-      filename: "[name].[contenthash:8].css",
+      filename: "[name].css",
       chunkFilename: "[name].[contenthash:8].css",
     }),
     new ImageMinimizerPlugin({
@@ -229,14 +208,17 @@ module.exports = {
             {
               from: path.resolve(__dirname, "./", "src/assets/", "images"),
               to: path.resolve(__dirname, "./", "dist/assets/", "images"),
+              noErrorOnMissing: true,
             },
             {
               from: path.resolve(__dirname, "./", "src/assets/", "fonts"),
               to: path.resolve(__dirname, "./", "dist/assets/", "fonts"),
+              noErrorOnMissing: true,
             },
             {
               from: videoSourcePath,
               to: videoDestPath,
+              noErrorOnMissing: true,
             },
           ],
         })
@@ -245,14 +227,20 @@ module.exports = {
             {
               from: path.resolve(__dirname, "./", "src/assets/", "images"),
               to: path.resolve(__dirname, "./", "dist/assets/", "images"),
+              noErrorOnMissing: true,
             },
             {
               from: path.resolve(__dirname, "./", "src/assets/", "fonts"),
               to: path.resolve(__dirname, "./", "dist/assets/", "fonts"),
+              noErrorOnMissing: true,
             },
           ],
         }),
   ],
+
+  optimization: {
+    minimize: false,
+  },
 
   module: {
     rules: [
@@ -291,6 +279,7 @@ module.exports = {
               url: false,
             },
           },
+          "group-css-media-queries-loader",
           "sass-loader",
         ],
       },

@@ -4,16 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Webpack</title>
+    <script defer src="main.js"></script>
+    <link href="main.css" rel="stylesheet" />
   </head>
   <body>
-    <include
-      src="./components/header.html"
-      data-text='{"h3": {"text": "new text", "class": "white"}}'
-    ></include>
-    <include
-      src="./components/header.html"
-      data-text='{"header": {"html": "<div>NEW TEXT</div>", "class": "white"}}'
-    ></include>
+    <header class="header">
+      <include
+        src="./components/new_comp.html"
+        data-text='{"h1": {"class": "white"}}'
+      ></include>
+      <h3 class="title content white">new text</h3>
+      <img src="./assets/images/example.webp" alt="" />
+    </header>
+
+    <header class="header white"><div>NEW TEXT</div></header>
 
     <div class="image">
       <img src="./assets/images/example.webp" alt="" />
